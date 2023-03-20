@@ -100,6 +100,45 @@ declare -a IPS=(vm_ip)
 
 CONFIG_FILE=inventory/dev/hosts.yaml python3 contrib/inventory_builder/inventory.py ${IPS[@]}
 
+all:
+  vars:
+    ansible_user: user
+    ansible_public_ssh_key_path: /home/user/.ssh/authorized_keys
+  hosts:
+    k8s-master-1:
+      ansible_host: 192.168.1.74
+      ip: 192.168.1.74
+      access_ip: 192.168.1.74
+    k8s-worker-1:
+      ansible_host: 192.168.1.75
+      ip: 192.168.1.75
+      access_ip: 192.168.1.75
+    k8s-worker-2:
+      ansible_host: 192.168.1.76
+      ip: 192.168.1.76
+      access_ip: 192.168.1.76
+    k8s-ingress-1:
+      ansible_host: 192.168.1.77
+      ip: 192.168.1.77
+      access_ip: 192.168.1.77
+  children:
+    kube_control_plane:
+      hosts:
+        k8s-master-1:
+    kube_node:
+      hosts:
+        k8s-worker-1:
+        k8s-worker-2:
+        k8s-ingress-1:
+    etcd:
+      hosts:
+        k8s-master-1:
+    k8s_cluster:
+      children:
+        kube_control_plane:
+        kube_node:
+    calico_rr:
+      hosts: {}
 
 
 
