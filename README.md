@@ -251,6 +251,31 @@ kubectl get nodes
 ```
 Результат команды аналогичный результату на мастер-машине
 
+
+### Установка Ingress-controller
+
+Представленный ниже манифест сохраняем в файл формата yaml и выполняем команду(действия проводим на машине администратора, она уже настроена), kubectl выполнит команду и создаст все необходимые объекты в нужном namespace 
+
+```bash
+
+kubectl apply -f file-manifest.yaml
+
+```
+
+В данном манифесте прописаны правила(tolerations и nodeSelector для объекта Deployment) для запуска на определенной ноде(k8s-ingress-1), которая была ранее помечена меткой ingress и добавлен был ключ с значением NoShedule.
+
+Для проеверки выполняем команду:
+
+```bash
+
+kubectl get pods -n ingress-nginx
+
+```
+
+Под контроллера должень быть в статусе running, как внешний адрес у сервисов с ingress будет использоваться адрес ВМ k8s-ingress-1
+
+```bash
+
 apiVersion: v1
 kind: Namespace
 metadata:
@@ -897,7 +922,7 @@ webhooks:
     - ingresses
   sideEffects: None
 
-
+```
 
 
 
