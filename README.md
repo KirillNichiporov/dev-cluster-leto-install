@@ -73,7 +73,71 @@ ssh-copy-id user@vm-ip
 
 ```
 
-### Установка кластера
+### Установка Kubectl
+
+```bash
+
+curl -LO https://storage.googleapis.com/kubernetes-release/release/`curl -s https://storage.googleapis.com/kubernetes-release/release/stable.txt`/bin/linux/amd64/kubectl
+
+chmod +x ./kubectl
+
+sudo mv ./kubectl /usr/local/bin/kubectl
+
+```
+
+Проверка 
+
+```bash
+
+kubectl version
+
+```
+
+### Установка Helm как установщика прочих инструментов
+
+```bash
+
+curl https://baltocdn.com/helm/signing.asc | gpg --dearmor | sudo tee /usr/share/keyrings/helm.gpg > /dev/null
+
+sudo apt-get install apt-transport-https --yes
+
+echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/helm.gpg] https://baltocdn.com/helm/stable/debian/ all main" | sudo tee /etc/apt/sources.list.d/helm-stable-debian.list
+
+sudo apt-get update
+
+sudo apt-get install helm
+
+```
+
+### Установка K9s для удобства управления
+
+###### Установка Go
+
+```bash
+
+wget https://go.dev/dl/go1.19.linux-amd64.tar.gz
+
+sudo rm -rf /usr/local/go && sudo  tar -C /usr/local -xzf go1.19.linux-amd64.tar.gz
+
+ls -l /usr/local/go/bin/
+
+export PATH=$PATH:/usr/local/go/bin/
+
+go version
+
+```
+
+###### Установка K9s
+
+```bash
+
+wget https://github.com/derailed/k9s/releases/download/v0.26.3/k9s_Linux_x86_64.tar.gz
+
+sudo tar -C /usr/local/bin -xzf k9s_Linux_x86_64.tar.gz
+
+```
+
+# Установка кластера
 
 На машине администратора клонируем репозиторий kubespray:
 
@@ -92,13 +156,21 @@ cd kubespray
 
 После, делаем копию каталога sample внутри этой копии (dev) будет размещаться используемый для установки inventory файл, устанавливаем плагины из предоставленного файла( их несколько, выберите вам подходящий), после объявляем переменную состоящую из адресов ВМ для кластера (адреса перечисляем через пробел), создаем конфигурационный файл в каталоге, где должен храниться inventory файл, с помощью скрипта от kubespray.
 
+```bash
+
 cp -rfp inventory/sample inventory/dev
 
-apt install -f requirements-*.txt
+pip3 install -r requirements-*.txt
 
 declare -a IPS=(vm_ip)
 
 CONFIG_FILE=inventory/dev/hosts.yaml python3 contrib/inventory_builder/inventory.py ${IPS[@]}
+
+```
+
+Внутри inventory файла размещаем имена машин по группам, назначаем мастеров(etcd и control-plane), а такде указываем пользователя и файл с ключами к ВМ кластера(предварительно можно проверить работу модулем ping от ansible) 
+
+```bash
 
 all:
   vars:
@@ -106,21 +178,21 @@ all:
     ansible_public_ssh_key_path: /home/user/.ssh/authorized_keys
   hosts:
     k8s-master-1:
-      ansible_host: 192.168.1.74
-      ip: 192.168.1.74
-      access_ip: 192.168.1.74
+      ansible_host: 192.**.**.**
+      ip: 192.**.**.**
+      access_ip: 192.**.**.**
     k8s-worker-1:
-      ansible_host: 192.168.1.75
-      ip: 192.168.1.75
-      access_ip: 192.168.1.75
+      ansible_host: 192.**.**.**
+      ip: 192.**.**.**
+      access_ip: 192.**.**.**
     k8s-worker-2:
-      ansible_host: 192.168.1.76
-      ip: 192.168.1.76
-      access_ip: 192.168.1.76
+      ansible_host: 192.**.**.**
+      ip: 192.**.**.**
+      access_ip: 192.**.**.**
     k8s-ingress-1:
-      ansible_host: 192.168.1.77
-      ip: 192.168.1.77
-      access_ip: 192.168.1.77
+      ansible_host: 192.**.**.**
+      ip: 192.**.**.**
+      access_ip: 192.**.**.**
   children:
     kube_control_plane:
       hosts:
@@ -139,6 +211,53 @@ all:
         kube_node:
     calico_rr:
       hosts: {}
+
+```
+
+Если все до этого настроили правильно и ничего не пропустили, то запускаем плейбук от kubespray, если в качестве пользователей на ВМ используются не root, то необходимо передать ansible привилегии sudo, вот полная команда для установки:
+
+```bash
+
+ansible-playbook -i inventory/dev/hosts.yaml -b cluster.yml --ask-pass-become
+
+```
+
+После отработки плейбука переходим на машину k8s-master-1 проверяем статус нод(если плейбук отработал без ошибок), у всех должен быть статус Ready:
+
+```bash
+
+kubectl get nodes
+
+```
+
+Также настроим ingress ноду, ставим метку ingress и прописываем правила запуска подов на ноде, в случае с ingress нодой на ней будет запускаться только контроллер(в манифесте прописаны правила и поставлены метки для запуска подов контроллера)
+
+```bash
+
+kubectl label node k8s-ingress-1 node-role.kubernetes.io/ingress=ingress
+
+kubectl taint nodes k8s-ingress-1 key1=value1:NoSchedule
+
+```
+
+Для того, чтобы управлять с машины администратора кластером нужно добавить файл config из /root/.kube/ на мастер-машине в предварительно созданную папку .kube внутри домашнего каталога пользователя, от имени которого будет осуществляться управление, на машине администратора и отредактировать адрес сервера в файле config вместо 127.0.0.1 на адрес мастер-машины.
+
+Проверяем на машине администратора:
+
+```bash
+
+kubectl get nodes
+
+```
+Результат команды аналогичный результату на мастер-машине
+
+
+
+
+
+
+
+
 
 
 
