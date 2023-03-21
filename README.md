@@ -79,7 +79,7 @@ passphrase не задаем
 
 ```bash
 
-ssh-copy-id user@vm-ip
+ssh-copy-id user@vm-ip(name)
 
 ```
 
