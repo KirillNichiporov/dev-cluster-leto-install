@@ -11,11 +11,11 @@
 
 Адреса и имена машин (для ssh)
 
--	192.168.1.74  k8s-master-1
--	192.168.1.75  k8s-worker-1
--	192.168.1.76  k8s-worker-2
--	192.168.1.77  k8s-ingress-1
--	192.168.1.78  k8s-admin
+-	192.168.1.74  dev-k8s-master-1.smartsafeschool.com 
+-	192.168.1.75  dev-k8s-worker-1.smartsafeschool.com 
+-	192.168.1.76  dev-k8s-worker-2.smartsafeschool.com 
+-	192.168.1.77  dev-k8s-ingress-1.smartsafeschool.com 
+-	192.168.1.78  dev-k8s-admin.smartsafeschool.com 
 
 
 ### Выполнить команды по установке (на всех машинах):
