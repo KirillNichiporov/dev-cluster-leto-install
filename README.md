@@ -188,21 +188,21 @@ all:
     ansible_public_ssh_key_path: /home/user/.ssh/authorized_keys
   hosts:
     k8s-master-1:
-      ansible_host: 192.**.**.**
-      ip: 192.**.**.**
-      access_ip: 192.**.**.**
+      ansible_host: 192.168.1.74
+      ip: 192.168.1.74
+      access_ip: 192.168.1.74
     k8s-worker-1:
-      ansible_host: 192.**.**.**
-      ip: 192.**.**.**
-      access_ip: 192.**.**.**
+      ansible_host: 192.168.1.75
+      ip: 192.168.1.75
+      access_ip: 192.168.1.75
     k8s-worker-2:
-      ansible_host: 192.**.**.**
-      ip: 192.**.**.**
-      access_ip: 192.**.**.**
+      ansible_host: 192.168.1.76
+      ip: 192.168.1.76
+      access_ip: 192.168.1.76
     k8s-ingress-1:
-      ansible_host: 192.**.**.**
-      ip: 192.**.**.**
-      access_ip: 192.**.**.**
+      ansible_host: 192.168.1.77
+      ip: 192.168.1.77
+      access_ip: 192.168.1.77
   children:
     kube_control_plane:
       hosts:
@@ -232,11 +232,23 @@ ansible-playbook -i inventory/dev/hosts.yaml -b cluster.yml --ask-pass-become
 
 ```
 
-После отработки плейбука переходим на машину k8s-master-1 проверяем статус нод(если плейбук отработал без ошибок), у всех должен быть статус Ready:
+После отработки плейбука переходим на машину k8s-master-1 проверяем статус нод(если плейбук отработал без ошибок,в данном моменте был волрос с версией ansible, йри установке kubespray), у всех должен быть статус Ready:
 
 ```bash
 
 kubectl get nodes
+
+```
+
+```bash
+
+NAME            STATUS   ROLES           AGE     VERSION
+k8s-ingress-1   Ready    ingress         2d17h   v1.26.2
+k8s-master-1    Ready    control-plane   2d19h   v1.26.2
+k8s-worker-1    Ready    <none>          2d19h   v1.26.2
+k8s-worker-2    Ready    <none>          2d19h   v1.26.2
+
+```
 
 ```
 
@@ -261,6 +273,15 @@ kubectl get nodes
 ```
 Результат команды аналогичный результату на мастер-машине
 
+```bash
+
+NAME            STATUS   ROLES           AGE     VERSION
+k8s-ingress-1   Ready    ingress         2d17h   v1.26.2
+k8s-master-1    Ready    control-plane   2d19h   v1.26.2
+k8s-worker-1    Ready    <none>          2d19h   v1.26.2
+k8s-worker-2    Ready    <none>          2d19h   v1.26.2
+
+```
 
 ### Установка Ingress-controller
 
@@ -283,6 +304,15 @@ kubectl get pods -n ingress-nginx
 ```
 
 Под контроллера должень быть в статусе running, как внешний адрес у сервисов с ingress будет использоваться адрес ВМ k8s-ingress-1
+
+```bash
+
+ingress-nginx-admission-create-lktht        0/1     Completed   0             2d9h
+ingress-nginx-admission-patch-bzxm4         0/1     Completed   2             2d9h
+ingress-nginx-controller-58dd64d6cd-4lvmj   1/1     Running     1 (87m ago)   40h
+
+```
+Манифест:
 
 ```bash
 
