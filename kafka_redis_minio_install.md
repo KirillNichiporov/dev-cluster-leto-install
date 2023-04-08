@@ -362,14 +362,170 @@ sudo dpkg -i minio.deb
 
 Установится он в /etc/systemd/system/minio.service
 
-Открыв и посмотрев файл можнозаметить, что выполняются действия от пользователя minio-userio-user 
+Открыв и посмотрев файл можно заметить, что выполняются действия от пользователя minio-user группы minio-user , поэтому создаем их и делаем владельцами двух каталогов дисков
+
+```bash
+
+groupadd -r minio-user
+useradd -M -r -g minio-user minio-user
+chown minio-user:minio-user /minio/disk1 /minio/disk2
+
+```
+
+Создаем файл переменных среды, котрый minio подтянет к себе, внем указываем рута, диски используемые, место хранения конфигов(его создать надо), так же порты
+
+```bash
 
 
+mkdir /etc/default/minio
 
 
+MINIO_ROOT_USER=user
+MINIO_ROOT_PASSWORD=password
+
+MINIO_VOLUMES="/minio/disk{1...2}"
+
+MINIO_OPTS="-C /etc/minio --address :9000 --console-address :9001"
 
 
+```
 
+Создаем каталог для конфигов и делаем владельцем minio-user
+
+
+```bash
+
+mkdir /etc/minio
+
+chown minio-user:minio-user /etc/minio
+
+```
+
+
+Стартуем сервис, помечаем его для старта после перезагрузки, проверяем статус
+
+```bash
+
+systemctl start minio
+
+systemctl enable minio
+
+systemctl status minio 
+
+Статус примерный
+
+● minio.service - MinIO
+   Loaded: loaded (/etc/systemd/system/minio.service; enabled; vendor preset: enabled)
+   Active: active (running) since Mon 2019-12-09 21:54:02 UTC; 46s ago
+     Docs: https://docs.min.io
+  Process: 3405 ExecStartPre=/bin/bash -c if [ -z "${MINIO_VOLUMES}" ]; then echo "Variable MINIO_VOLUMES not set in /etc/default/minio"; exit 1; fi (code=exited, status=0/SUCCES
+ Main PID: 3407 (minio)
+    Tasks: 7 (limit: 1152)
+   CGroup: /system.slice/minio.service
+           └─3407 /usr/local/bin/minio server -C /etc/minio --address your_server_IP:9000 /usr/local/share/minio/
+
+Dec 09 21:54:02 cart-Minion-Object-1804-1 systemd[1]: Started MinIO.
+Dec 09 21:54:03 cart-Minion-Object-1804-1 minio[3407]: Endpoint:  http://your_server_IP:9000
+Dec 09 21:54:03 cart-Minion-Object-1804-1 minio[3407]: Browser Access:
+Dec 09 21:54:03 cart-Minion-Object-1804-1 minio[3407]:    http://your_server_IP:9000
+
+```
+
+Теперь настроим TLS
+
+Чтоб включить tls необходимо положить ключ и сертификат в каталог /etc/minio/certs , важно, чтоб серт имел название public.crt, а ключ private.key иначе minio их не подтянет
+
+Рестартуем сервис и проверяем статус
+
+```bash
+
+
+systemctl restart minio
+
+systemctl status minio 
+
+
+ minio.service - MinIO
+     Loaded: loaded (/etc/systemd/system/minio.service; enabled; vendor preset: enabled)
+     Active: active (running) since Sat 2023-04-08 13:14:20 UTC; 15min ago
+       Docs: https://docs.min.io
+    Process: 816 ExecStartPre=/bin/bash -c if [ -z "${MINIO_VOLUMES}" ]; then echo "Variable MINIO_VOLUMES not set in /etc/default/minio"; exit 1; fi (code=exited, status=0/SUCCESS)
+   Main PID: 851 (minio)
+      Tasks: 12
+     Memory: 147.9M
+        CPU: 1.366s
+     CGroup: /system.slice/minio.service
+             └─851 /usr/local/bin/minio server -C /etc/minio --address :9000 --console-address :9001 /minio/disk{1...2}
+
+Apr 08 13:14:20 dev-minio minio[851]: MinIO Object Storage Server
+Apr 08 13:14:20 dev-minio minio[851]: Copyright: 2015-2023 MinIO, Inc.
+Apr 08 13:14:20 dev-minio minio[851]: License: GNU AGPLv3 <https://www.gnu.org/licenses/agpl-3.0.html>
+Apr 08 13:14:20 dev-minio minio[851]: Version: RELEASE.2023-03-24T21-41-23Z (go1.19.7 linux/amd64)
+Apr 08 13:14:20 dev-minio minio[851]: Status:         2 Online, 0 Offline.
+Apr 08 13:14:20 dev-minio minio[851]: API: https://192.168.1.81:9000  https://127.0.0.1:9000
+Apr 08 13:14:20 dev-minio minio[851]: Console: https://192.168.1.81:9001 https://127.0.0.1:9001
+Apr 08 13:14:20 dev-minio minio[851]: Documentation: https://min.io/docs/minio/linux/index.html
+Apr 08 13:14:21 dev-minio minio[851]:  You are running an older version of MinIO released 1 week ago
+Apr 08 13:14:21 dev-minio minio[851]:  Update: Run `mc admin update`
+
+
+```
+
+Готово, tls работает
+
+Теперь надо создать на машине k8s-proxy 2 конфигурации в /etc/nginx/sites-enabled, первая для консоли, а вторая для api
+
+```bash
+
+server {
+
+        listen 443 ssl;
+        server_name dev-minio.smartsafeschool.com;
+
+        ssl_certificate /etc/nginx/certs/fullchain.pem;
+        ssl_certificate_key /etc/nginx/certs/privkey.pem;
+
+        location / {
+                proxy_set_header Host $host;
+                proxy_pass       https://192.168.1.81:9001;
+
+        }
+
+}
+
+```
+
+```bash
+
+server {
+
+        listen 443 ssl;
+        server_name dev-minio-api.smartsafeschool.com;
+
+        ssl_certificate /etc/nginx/certs/fullchain.pem;
+        ssl_certificate_key /etc/nginx/certs/privkey.pem;
+
+        location / {
+                proxy_set_header Host $host;
+                proxy_pass       https://192.168.1.81:9000;
+
+        }
+
+}
+
+```
+Применяем настройки
+
+```bash
+
+nginx -t
+
+nginx -s reload
+
+
+```
+
+На этом установка minio закончена
 
 
 
