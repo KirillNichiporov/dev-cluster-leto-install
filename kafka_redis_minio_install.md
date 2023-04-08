@@ -186,11 +186,11 @@ kafka-zookeeper-0           1/1     Running   1 (18h ago)   24h
 
 ```
 
-Отлично, статус running, установка закончена на этом
+Отлично, статус running, остается добавить dns на машину k8s-proxy, установка закончена на этом,
 
 # Установка Redis
 
-Создаем pvc для мастера redis, ибо при установке необходимо указывать хранилку, cоздаем файл формата yaml
+Создаем pvc для мастера redis, ибо при установке необходимо указывать хранилку, cоздаем файл формата yaml, а в нем указываем storageclass ресурс и пространство имен
 
 ```bash
 
@@ -227,29 +227,142 @@ NAME                              STATUS   VOLUME                               
 pvc-for-master-redis              Bound    pvc-d3c2e550-1a07-4bf0-ac10-f141d9c221d4   4Gi        RWO            redis-storage   24h
 
 ```
-Отлично
+Отлично, статус bound
+
+Теперь установим redis через helm, указываем реплики, storageclass и pvc для мастера, pvc для реплик создаются автоматически, размер pvc для реплик
+
+```bash
+
+helm install dev-redis bitnami/redis --namespace redis --set global.redis.password=password,master.persistence.existingClaim=pvc-for-master-redis,replica.replicaCount=2,replica.persistence.storageClass=redis-storage,replica.persistence.size=2Gi
+
+```
+
+Проверим статус
+
+```bash
+
+kubectl get pods -n redis
+
+NAME                           READY   STATUS    RESTARTS      AGE
+dev-redis-master-0             1/1     Running   1 (19h ago)   25h
+dev-redis-replicas-0           1/1     Running   1 (19h ago)   25h
+dev-redis-replicas-1           1/1     Running   1 (19h ago)   25h
+
+```
+
+Redis поднялся, установим для него ui
+
+```bash
+
+Клонируем репозиторийи и заходим по пути k8s/manifests
+
+git clone https://github.com/patrikx3/redis-ui.git
+
+Редактируем манифесты по нас(namespace во всех, ingress и configmap отдельно), в configmap указываем креды к redis и сервис с портом
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: p3x-redis-ui-settings
+  namespace: redis
+data:
+  .p3xrs-conns.json: |
+    {
+      "list": [
+        {
+          "name": "dev-redis-cluster",
+          "host": "dev-redis-master",
+          "port": 6379,
+          "password": "password",
+          "id": "unique"
+        }
+      ],
+      "license": ""
+    }
+
+```
+
+В ингресс указываем dns и секрет для tls
+
+```bash
+
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: redis-ui-ingress
+  namespace: redis
+  annotations:
+    kubernetes.io/ingress.class: nginx
+spec:
+  rules:
+    - host: dev-redis.smartsafeschool.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: p3x-redis-ui-service
+                port:
+                  number: 7843
+
+  tls:
+  - hosts:
+    - dev-redis.smartsafeschool.com 
+    secretName: tls-secret
+
+```
+
+Запускаем все в строгом порядке
+
+```bash
+
+kubectl apply -f configmap.yaml
+
+kubectl apply -f deployment.yaml
+
+kubectl apply -f service.yaml
+
+kubectl apply -f ingress.yaml
+
+```
+
+Проверим статус
+
+```bash
+
+kubectl get pods -n redis
+
+NAME                           READY   STATUS    RESTARTS      AGE
+dev-redis-master-0             1/1     Running   1 (19h ago)   25h
+dev-redis-replicas-0           1/1     Running   1 (19h ago)   25h
+dev-redis-replicas-1           1/1     Running   1 (19h ago)   25h
+p3x-redis-ui-647c596c5-bsc5c   1/1     Running   1 (19h ago)   24h
+
+```
+
+Готово, добавляем dns на k8s-proxy, установка закончена
+
+# Установка MinIO
+
+Устанавливаться minio будет вне кластера, поэтому готовим машину dev-minio-vm.smarsafeschool 192.168.1.81, для нее необходимо 3 диска, один системный на 30гб, а 2 других по 60гб (меньше 50 не брать ибо minio не запишет системный файл) под minio, точки монтирования устанавливаем в /minio/disk1 /minio/disk2 соответственно, файловая система рекомендована xfs.
 
 
+После создания машины приступаем к установке minio
 
+Скачиваем пакет сервиса и устанавливаем его
 
+```bash
 
+wget https://dl.min.io/server/minio/release/linux-amd64/archive/minio_20230324214123.0.0_amd64.deb -O minio.deb
 
+sudo dpkg -i minio.deb
 
+```
 
+Установится он в /etc/systemd/system/minio.service
 
-
-
-
-
-
-
-
-
-
-
-
-
-
+Открыв и посмотрев файл можнозаметить, что выполняются действия от пользователя minio-userio-user 
 
 
 
