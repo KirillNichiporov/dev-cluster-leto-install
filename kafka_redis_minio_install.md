@@ -473,44 +473,87 @@ Apr 08 13:14:21 dev-minio minio[851]:  Update: Run `mc admin update`
 
 Готово, tls работает
 
-Теперь надо создать на машине k8s-proxy 2 конфигурации в /etc/nginx/sites-enabled, первая для консоли, а вторая для api
+Теперь надо создать на машине k8s-proxy 2 конфигурации в /etc/nginx/sites-enabled, первая для api, а вторая для консоли
 
 ```bash
 
-server {
-
-        listen 443 ssl;
-        server_name dev-minio.smartsafeschool.com;
-
-        ssl_certificate /etc/nginx/certs/fullchain.pem;
-        ssl_certificate_key /etc/nginx/certs/privkey.pem;
-
-        location / {
-                proxy_set_header Host $host;
-                proxy_pass       https://192.168.1.81:9001;
-
-        }
-
+upstream minio {
+   least_conn;
+   server dev-minio-vm.smartsafeschool.com;
 }
 
-```
+server {
+   listen 443 ssl;
+   server_name  dev-minio-api.smartsafeschool.com;     
 
-```bash
+   ssl_certificate /etc/nginx/certs/fullchain.pem;
+   ssl_certificate_key /etc/nginx/certs/privkey.pem;
+
+   # Allow special characters in headers
+   ignore_invalid_headers off;
+   # Allow any size file to be uploaded.
+   # Set to a value such as 1000m; to restrict file size to a specific value
+   client_max_body_size 0;
+   # Disable buffering
+   proxy_buffering off;
+   proxy_request_buffering off;
+
+   location / {
+      proxy_set_header Host $http_host;
+      proxy_set_header X-Real-IP $remote_addr;
+      proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+      proxy_set_header X-Forwarded-Proto $scheme;
+
+      proxy_connect_timeout 300;
+      # Default is HTTP/1, keepalive is only enabled in HTTP/1.1
+      proxy_http_version 1.1;
+      proxy_set_header Connection "";
+      chunked_transfer_encoding off;
+
+      proxy_pass https://dev-minio-vm.smartsafeschool.com:9000/ ; # This uses the upstream directive definition to load balance
+   }
+}
 
 server {
 
-        listen 443 ssl;
-        server_name dev-minio-api.smartsafeschool.com;
+   listen 443 ssl;
+   server_name  dev-minio.smartsafeschool.com;
 
-        ssl_certificate /etc/nginx/certs/fullchain.pem;
-        ssl_certificate_key /etc/nginx/certs/privkey.pem;
+   ssl_certificate /etc/nginx/certs/fullchain.pem;
+   ssl_certificate_key /etc/nginx/certs/privkey.pem;
 
-        location / {
-                proxy_set_header Host $host;
-                proxy_pass       https://192.168.1.81:9000;
 
-        }
 
+   # Allow special characters in headers
+   ignore_invalid_headers off;
+   # Allow any size file to be uploaded.
+   # Set to a value such as 1000m; to restrict file size to a specific value
+   client_max_body_size 0;
+   # Disable buffering
+   proxy_buffering off;
+   proxy_request_buffering off;
+
+   location / {
+      proxy_set_header Host $http_host;
+      proxy_set_header X-Real-IP $remote_addr;
+      proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+      proxy_set_header X-Forwarded-Proto $scheme;
+      proxy_set_header X-NginX-Proxy true;
+
+      # This is necessary to pass the correct IP to be hashed
+      real_ip_header X-Real-IP;
+
+      proxy_connect_timeout 300;
+
+      # To support websocket
+      proxy_http_version 1.1;
+      proxy_set_header Upgrade $http_upgrade;
+      proxy_set_header Connection "upgrade";
+
+      chunked_transfer_encoding off;
+
+      proxy_pass https://dev-minio-vm.smartsafeschool.com:9001/ ; # This uses the upstream directive definition to load balance and assumes a static Console port of 9001
+   }
 }
 
 ```
