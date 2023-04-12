@@ -438,9 +438,13 @@ spec:
 
 ```
 
-Oбновляем monolith (файлы в каталогк монолита)
+Oбновляем monolith (файлы в каталоге монолита)
+
+```bash
 
 kubectl apply -f monolith-deployment.yaml -n monolith
+
+```
 
 
 Проверяем статус и ответ от сервиса monolith
