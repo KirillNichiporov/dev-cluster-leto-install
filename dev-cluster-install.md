@@ -274,7 +274,7 @@ all:
 
 ```bash
 
-ansible-playbook -i inventory/dev/hosts.yaml -b cluster.yml --ask-become-pass
+ansible-playbook -i inventory/dev/hosts.yaml -b cluster.yml --ask-become-pass --skip-tags=multus
 
 ```
 
