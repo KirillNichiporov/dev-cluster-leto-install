@@ -124,6 +124,10 @@ spec:
                 port:
                   number: 3000
 
+  tls:
+  - hosts:
+    - grafana-dev.smartsafeschool.com 
+    secretName: tls-secret
 ```
 
 ```bash
@@ -408,7 +412,7 @@ metadata:
     kubernetes.io/ingress.class: nginx
 spec:
   rules:
-    - host: prometheus.smartsafeschool.com
+    - host: prometheus-dev.smartsafeschool.com
       http:
         paths:
           - path: /
@@ -418,6 +422,10 @@ spec:
                 name: prometheus-service
                 port:
                   number: 8080
+  tls:
+  - hosts:
+    - prometheus-dev.smartsafeschool.com 
+    secretName: tls-secret
 
 ```
 
@@ -433,6 +441,8 @@ kube-state-metrics-84b67f9f48-ffwv7      1/1     Running   21 (9h ago)   78d
 prometheus-deployment-8574d8cc9d-w4znx   1/1     Running   2 (9h ago)    10d
 
 ```
+
+Ингресс имена надо добавить на прокси-машину и на dns локальный
 
 # Установка системы сбора логов (Grafana Loki)
 
@@ -649,19 +659,177 @@ sudo systemctl enable prometheus
 
 # Интеграция Loki и Prometheus c Grafana
 
+### Prometheus
+
+Для интеграции надо перейти в браузере по адресу grafana-dev.smartsafeschool.com, залогиниться с кредами (admin/k17n02i01)
+
+На боковой панели выбрать connections затем datasource, после добавить новое для Prometheus 
+
+![image](https://github.com/KirillNichiporov/dev-cluster-leto-install/assets/110092772/25466edc-389a-4619-b9e7-a25a91580de5)
+
+Далее указываем имя сервиса и порт
+
+![image](https://github.com/KirillNichiporov/dev-cluster-leto-install/assets/110092772/e262c55a-0ea5-4aa6-b6bb-c7a1aa50c729)
+
+После тестируем коннект
+
+![image](https://github.com/KirillNichiporov/dev-cluster-leto-install/assets/110092772/fbd04e00-1cfc-40c1-a468-af81717ead42)
+ 
+ 
+ Готово, подключение для нод аналогичное, только надо использовать из ip для адреса
+ 
+ ![image](https://github.com/KirillNichiporov/dev-cluster-leto-install/assets/110092772/4f824d1c-c628-49cc-b7b4-8458c33a0ae8)
+
+
+### Loki
+
+Добавление Loki аналогично Prometheus, указываем имя сервиса и пространство имен с портом, а затем тестируем 
+
+![image](https://github.com/KirillNichiporov/dev-cluster-leto-install/assets/110092772/d0f54721-6d2c-4a7b-9a07-2b344c9b8dcb)
 
 
 
+# Добавление Dashboards
+
+### Service monitoring
+
+Переходим во вкладку на боковой панели dashboards и жмем создать новое 
+
+![image](https://github.com/KirillNichiporov/dev-cluster-leto-install/assets/110092772/d2202669-43f1-429a-9e89-077347a0b130)
+
+Выбираем dashboard или folder, чтобы потом туда поместить dashboard
 
 
+Добавляем визуализацию
+
+![image](https://github.com/KirillNichiporov/dev-cluster-leto-install/assets/110092772/e3e4408a-25df-4099-aad5-d1d8abe2cf6b)
+
+После выбираем datasource prometheus(для нод выбираем их подключения) нужные метрики и объект, жмем run queries, для которого собираются, потом жмем apply и сохраняем dashboard
+
+![image](https://github.com/KirillNichiporov/dev-cluster-leto-install/assets/110092772/ff37b204-c116-4ae5-8e09-4eb22cf2bc88)
+
+### Service logging
+
+Для логгинга добавляем dashboard и подключаем datasource Loki, выбираем контейнер для сбора логов, жмем run queries, потом apply и сохраняем
+
+![image](https://github.com/KirillNichiporov/dev-cluster-leto-install/assets/110092772/773e72f0-86dd-4252-80ca-f8c9d720906c)
 
 
+Данные могут не появиться из-за того, что их нет, тогда можно просто увеличить время для поиска
+
+![image](https://github.com/KirillNichiporov/dev-cluster-leto-install/assets/110092772/f4479344-f104-4c99-85fc-10381ee83757)
+
+На этом по dashboards все, это простые настройки, дабы сделать прям серьезные, необходимо покопаться в конфигурациях
+
+# Установка Kubernetes Dashboard
+
+Для начала создаем пространство имен и секрет для tls
+
+```bash
+
+kubectl create namespace kubernetes-dashboard
+
+kubectl create secret -n kubernetes-dashboard tls tls-secret --cert=/path/fullchain.pem --key=/path/privkey.pem
+
+```
+
+Затем устанавливаем kubernetes-dashboard 
+
+```bash
+
+kubectl apply -f https://raw.githubusercontent.com/kubernetes/dashboard/v2.7.0/aio/deploy/recommended.yaml -n kubernetes-dashboard
+
+```
+
+Проверим поды
+
+```bash
+
+kubectl get pods -n kubernetes-dashboard
+NAME                                        READY   STATUS    RESTARTS      AGE
+dashboard-metrics-scraper-7bc864c59-5m8j7   1/1     Running   2 (13h ago)   2d20h
+kubernetes-dashboard-6c7ccbcf87-rkrtn       1/1     Running   2 (13h ago)   2d20h
+
+```
+
+Ставим ingress (приведен ниже)
+
+```bash
+
+kubectl apply -f kubernetes-dashboard-ingress.yaml -n kubernetes-dashboard
 
 
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: kubernetes-dashboard-ingress
+  namespace: kubernetes-dashboard
+  annotations:
+    kubernetes.io/ingress.class: nginx
+    nginx.ingress.kubernetes.io/backend-protocol: "HTTPS"
+spec:
+  rules:
+    - host: kubernetes-dashboard-dev.smartsafeschool.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: kubernetes-dashboard
+                port:
+                  number: 443
+  tls:
+  - hosts:
+    - kubernetes-dashboard-dev.smartsafeschool.com 
+    secretName: tls-secret
 
 
+```
 
+Содаем роли для токена входа
 
+```bash
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: admin-user
+  namespace: kubernetes-dashboard
+  
+ ``` 
+  
+```bash
+ 
+ apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: admin
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: cluster-admin
+subjects:
+- kind: ServiceAccount
+  name: admin
+  namespace: kubernetes-dashboard
 
+```
 
+```bash
 
+kubectl apply -f admin.yaml
+kubectl apply -f role.yaml
+
+```
+Готово, после этого надо создавать токен доступа(kubernetes ради безопасности его чистит через время, поэтому создавать надо через время)
+
+```bash
+
+kubectl -n kubernetes-dashboard create token admin
+
+```
+ingress добавляем в прокси-машину и в dns локальный
+
+При входе в браузере указываем токен, кторый создали
+
+На этом с установками все
