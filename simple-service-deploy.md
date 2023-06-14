@@ -239,4 +239,12 @@ Hello world from [Simple Service 2]!
 ```
 Отлично, сервисы видят друг друга 
 
+При включенном ssl обращение сервисов внутри кластера невозможно из-за сертификата он сделан на домен .smartsafeschool.com , а обращается сервси 1 на сервис 2 по внутрикластерному адресу https://simple2-service.simple-services:8082, можно решить вопрос сделав сертификат на все домены(если надо ssl в этом случае он не нужен)
 
+Если включить ssl, то можно дергать сервис по имени ингресс машины
+```bash
+
+curl https://k8s-ingress-1.smartsafeschool.com:31000/simple-service1/hello
+Hello from [Simple Service 1]!
+
+```
