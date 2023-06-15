@@ -14,8 +14,6 @@ su - postgres
 
 createuser --interactive
 
-
-
 даем права суперпользователя и задаем имя dev_smartdevices_admin
 
 psql 
