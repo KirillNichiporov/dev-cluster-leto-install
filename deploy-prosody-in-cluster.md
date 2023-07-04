@@ -465,6 +465,247 @@ curl https://mn-dev.smartsafeschool.com/api/admin/version/
 Развертка на этом закончена
 
 
+# Как пересадить Prosody на Postgresql
+
+### Подготовка БД для prosody 
+
+Переходим на машину с postgresql (192.168.1.71), на машине подключаемся от пользоваетля postgres и переходим к созданию нового юзера и бд
+
+```bash
+
+su - postgres
+
+```
+
+Теперь создаем пользователя
+
+```bash
+
+createuser --interactive
+
+даем права суперпользователя и задаем имя dev_prosody_admin
+
+после подключаемся к psql выполняя команду
+
+psql 
+
+задаем пароль для юзера
+
+alter user dev_smartdevices_admin with password '********';
+
+```
+
+создаем БД с таким же названием как пользовательскую
+
+```bash
+
+create database dev_prosody_admin;
+
+```
+
+Далее создаем нужную нам БД и назначаем влядельцем нашего нового юзера 
+
+```bash
+
+create database dev_prosody_db owner dev_prosody_admin;
+
+```
+
+так же надо создать пользователя linux, чтоб могли подключаться из под него(отключаемся от psql используя \q и отключаемся от юзера postgres используя exit
+
+```bash
+
+adduser dev_smartdevices_admin
+
+```
+
+Тепрь разрешим пользователю доступ из вне к БД
+
+Открываем pg_hba.conf
+
+```bash
+
+nano /etc/postgresql/14/main/pg_hba.conf  
+
+прописываем строку
+
+host    all       dev_prosody_admin        192.168.1.0/24          md5
+
+пока без ssl(для ssl прописываем hostssl)
+
+```
+
+делаем reload
+
+```bash
+
+systemctl reload postgresql
+
+```
+
+Далее подключаемся от клинента под новым пользователем и к новой бд для удобства (datagrip и тд), там создаем схему внутри БД и назначаем владельцем нового пользователя
+
+БД подготовлена
+
+# Обновление prosody
+
+Перейдем к обновлению переменных prosody
+
+Внутри манифеста меняем данные о БД (добавляем новое) и меняем тег имеджа на prosody-server
+
+```bash
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: prosody-deployment
+  labels:
+    app: prosody
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: prosody
+  template:
+    metadata:
+      labels:
+        app: prosody
+
+    spec:
+      containers:
+      - name: prosody-image
+        image: git2.uonmap.com:5555/smartsafeschool/backend/smartdevice/docker_jitsi_meet:prosody-server
+        env:
+
+        - name: TZ
+          value: "UTC"
+        - name: API_XMPP_USER
+          value: "api.server"
+        - name: API_XMPP_PASSWORD
+          value: "1cf44b4e337f54270f7b870a90415b8e"
+        - name: AUTH_TYPE
+          value: "jwt"
+        - name: ENABLE_AUTH
+          value: "1"
+
+        - name: GLOBAL_MODULES
+          value: "blocklist"
+        - name: JICOFO_AUTH_USER
+          value: "focus"
+        - name: JICOFO_AUTH_PASSWORD
+          value: "5d5c6daee9e0ad63414f4973b9bf9f80"
+        - name: JVB_AUTH_USER
+          value: "jvb"
+        - name: JVB_AUTH_PASSWORD
+          value: "b9a48c1b592a7ecefe5fb35c943e702e"
+
+        - name: JWT_APP_ID
+          value: "smart_safe_school_app"
+        - name: JWT_APP_SECRET
+          value: "3752143452fc0f705564ef4086f3aab6"
+        - name: PUBLIC_URL
+          value: "https://messenger-jitsi-dev.smartsafeschool.com"
+        - name: XMPP_AUTH_DOMAIN
+          value: "auth.messenger-jitsi-dev.smartsafeschool.com"
+        - name: XMPP_GUEST_DOMAIN
+          value: "guest.messenger-jitsi-dev.smartsafeschool.com"
+
+        - name: XMPP_MUC_DOMAIN
+          value: "muc.messenger-jitsi-dev.smartsafeschool.com"
+        - name: XMPP_INTERNAL_MUC_DOMAIN
+          value: "internal-muc.messenger-jitsi-dev.smartsafeschool.com"
+        - name: XMPP_RECORDER_DOMAIN
+          value: "recorder.messenger-jitsi-dev.smartsafeschool.com"
+        - name: XMPP_SERVER
+          value: "xmpp.messenger-jitsi-dev.smartsafeschool.com"
+        - name: DB_DATABASE
+          value: "dev_prosody_db"
+        - name: DB_USER
+          value: "dev_prosody_admin"
+        - name: DB_PASSWORD
+          value: "Kjr4912XzRt"
+        - name: DB_HOST
+          value: "db-postgre-dev.smartsafeschool.com"
+
+
+        ports:
+        - containerPort: 5222
+          protocol: TCP
+        - containerPort: 5347
+          protocol: TCP
+        - containerPort: 5280
+          protocol: TCP
+        volumeMounts:
+        - name: prosody-config
+          mountPath: /config:Z
+        - name: prosody-plugins-custom
+          mountPath: /prosody-plugins-custom:Z
+
+      volumes:
+      - name: prosody-config
+        persistentVolumeClaim:
+          claimName: prosody-pvc-config
+      - name: prosody-plugins-custom
+        persistentVolumeClaim:
+          claimName: prosody-pvc-plugins-custom
+
+      imagePullSecrets:
+      - name: registry-cred
+
+
+```
+
+До того как обновлять настройки нужно удалить volumes, для этого переходим на nfs в каталог /var/nfs/prosody и удаляем все папки внутри данного каталога, после переходим на машину админа и пересоздаем pvc( перед этим перейдем в каталог /home/prosody)
+
+```bash
+
+Удаляем
+
+kubectl delete -f prosody-pvc-plugins-custom.yaml -n prosody
+kubectl delete -f prosody-pvc-config.yaml -n prosody
+
+Пересоздаем
+
+kubectl apply -f prosody-pvc-plugins-custom.yaml -n prosody
+kubectl apply -f prosody-pvc-config.yaml -n prosody
+
+```
+
+После обновления pvc должны быть в статусе bound, это можно проверить командой
+
+```bash
+
+kubectl get pvc
+
+NAME                         STATUS   VOLUME                                     CAPACITY   ACCESS MODES   STORAGECLASS      AGE
+prosody-pvc-config           Bound    pvc-5fecb944-d8d7-4fba-9a41-ed3010746b06   5Gi        RWX            prosody-storage   64m
+prosody-pvc-plugins-custom   Bound    pvc-c769ff85-59e8-4c5c-87ab-3bd359601fbe   10Gi       RWX            prosody-storage   65m
+
+```
+
+Видим, что все окей, можно приступать к обновлению
+
+
+Обновляем деплоймент(выбираем нужный namespace)
+
+```bash
+
+kubectl apply -f prosody-deployment.yaml -n prosody
+
+```
+
+Cмотрим поднялись ли поды 
+
+```bash
+
+kubectl get pods -n monolith
+
+NAME                                 READY   STATUS    RESTARTS   AGE
+prosody-deployment-5cf67f4bc-994c7   1/1     Running   0          62m
+
+```
+
+Готово
 
 
 
