@@ -450,8 +450,41 @@ curl https://mn-dev.smartsafeschool.com/api/admin/version/
 
 Развертка на этом закончена
 
+# Monolith and MinIO
+
+Редактируем манифесты добавляя новые переменные( пересаживаем на minio, media-server успользуется из пространства имен store
+
+В манифест монолита, строчки связанные с volume storage можно закомментировать
+
+```bash
+
+        - name: APP_CONFIG_CHANGE_EMAIL_DELAY_SECONDS
+          value: "90"
+        - name: APP_CONFIG_MEDIA_HOST
+          value: "http://media-server-service.store"
+        - name: APP_CONFIG_MEDIA_PORT
+          value: "4443"
+
+```
+
+В манифест веб-сервиса
+
+```bash
+
+        - name: VITE_MEDIA_SERVICE_URL
+          value: "https://dev-minio-api.smartsafeschool.com"
 
 
+```
+
+После редактирования манифестов можно обновить сервисы
+
+```bash
+
+kubectl apply -f monolith-web-deployment.yaml -n monolith
+kubectl apply -f monolith-deployment.yaml -n monolith
+
+```
 
 
 
