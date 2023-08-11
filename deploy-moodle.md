@@ -114,8 +114,8 @@ spec:
     spec:
       containers:
       - name: moodle-image
-        image: docker.io/bitnami/moodle:4.2.1
-        imagePullPolicy: IfNotPresent
+        image: git2.uonmap.com:5555/smartsafeschool/backend/third_party_services/moodle:dev-latest
+        imagePullPolicy: Always
         env:
 
         - name: MOODLE_HOST
@@ -130,6 +130,12 @@ spec:
           value: "moodle@mail.smartsafeschool.com"
         - name: MOODLE_SKIP_BOOTSTRAP
           value: "yes"
+#        - name: MOODLE_REVERSEPROXY
+#          value: "yes"
+#        - name: MOODLE_SSLPROXY
+#          value: "true"
+        - name: MOODLE_DISABLE_LOGIN_TOKEN
+          value: "yes"
 
         - name: MOODLE_DATABASE_TYPE
           value: "pgsql"
@@ -143,9 +149,15 @@ spec:
           value: "moodle"
         - name: MOODLE_DATABASE_PASSWORD
           value: "8437veRT34zxp2"
+
+
+
         ports:
         - containerPort: 8080
           protocol: TCP
+
+      imagePullSecrets:
+      - name: registry-cred
 
 ```
 
