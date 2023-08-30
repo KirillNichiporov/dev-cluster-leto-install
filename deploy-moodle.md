@@ -89,7 +89,75 @@ systemctl reload postgresql
 
 # Деплой Moodle
 
+Подготовим nfs 
+
+создаем на машине nfs каталог для данных и назначаем владельца
+
+```bash
+
+mkdir -p /var/nfs/moodle
+
+chown anon /var/nfs/moodle
+
+```
+
+Переходим в файл /etc/exports
+
+```bash
+
+nano /etc/exports
+
+В нем прописываем
+
+/var/nfs/monolith 192.168.1.0/24(rw,sync,no_root_squash,anonuid=1001,anongid=1001)
+
+После
+
+exportfs -a
+
+```
+
+Установим под-клиент для nfs
+
+```bash
+
+helm install nfs-moodle-subdir-external-provisioner nfs-subdir-external-provisioner/nfs-subdir-external-provisioner --set nfs.server=192.168.1.180 --set nfs.path=/var/nfs/moodle --set storageClass.name=moodle-storage
+
+```
+
+Проверим под
+
+```bash
+
+kubectl get pods
+
+NAME                                                              READY   STATUS    RESTARTS      AGE
+nfs-moodle-subdir-external-provisioner-nfs-subdir-external6xf2f   1/1     Running   0             68m
+
+
+```
+Все запущено
+
+
+
 Подготовим манифесты
+
+###### PVC
+
+kind: PersistentVolumeClaim
+apiVersion: v1
+metadata:
+  name: moodle-pvc
+  annotations:
+    volume.beta.kubernetes.io/storage-class: "moodle-storage"
+spec:
+  accessModes:
+    - ReadWriteMany
+  resources:
+    requests:
+      storage: 5Gi
+
+
 
 ###### Deployment 
 
@@ -114,12 +182,13 @@ spec:
     spec:
       containers:
       - name: moodle-image
-        image: git2.uonmap.com:5555/smartsafeschool/backend/third_party_services/moodle:dev-latest
+        image: git2.uonmap.com:5555/smartsafeschool/backend/third_party_services/moodle:test-latest
         imagePullPolicy: Always
         env:
 
+        # After Demo rename "moodle.smartsafeschoo.com" to "test-moodle.smartsafeschool.com"
         - name: MOODLE_HOST
-          value: "moodle-dev.smartsafeschool.com"
+          value: "moodle.smartsafeschool.com"
         - name: MOODLE_USERNAME
           value: "admin"
         - name: MOODLE_PASSWORD
@@ -144,20 +213,28 @@ spec:
         - name: MOODLE_DATABASE_PORT_NUMBER
           value: "5432"
         - name: MOODLE_DATABASE_NAME
-          value: "moodle_db"
+          value: "test_moodle_db"
         - name: MOODLE_DATABASE_USER
-          value: "moodle"
+          value: "test_moodle"
         - name: MOODLE_DATABASE_PASSWORD
-          value: "8437veRT34zxp2"
-
-
+          value: "KGj34844DfnQ98X"
 
         ports:
         - containerPort: 8080
           protocol: TCP
 
+        volumeMounts:
+        - name: bitnami-moodle
+          mountPath: /bitnami/moodle
+
+      volumes:
+      - name: bitnami-moodle
+        persistentVolumeClaim:
+          claimName: moodle-pvc
+
       imagePullSecrets:
       - name: registry-cred
+
 
 ```
 
@@ -220,6 +297,8 @@ kubectl create namespace moodle
 kubectl create secret tls tls-secret --cert=fullchain.pem --key=privkey.pem -n moodle
 
 kubectl create secret -n moodle docker-registry registry-cred --docker-server=https://git2.uonmap.com:5555 --docker-username=user_service --docker-password=BELpzoxx_7vsYRpUKCWp --docker-email=<your-email>
+
+kubectl apply -f moodle-pvc.yaml -n moodle
 
 kubectl apply -f moodle-deployment.yaml -n moodle
 
