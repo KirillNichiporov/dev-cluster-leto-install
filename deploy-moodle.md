@@ -136,6 +136,7 @@ nfs-moodle-subdir-external-provisioner-nfs-subdir-external6xf2f   1/1     Runnin
 
 
 ```
+
 Все запущено
 
 
@@ -143,6 +144,8 @@ nfs-moodle-subdir-external-provisioner-nfs-subdir-external6xf2f   1/1     Runnin
 Подготовим манифесты
 
 ###### PVC
+
+```bash
 
 kind: PersistentVolumeClaim
 apiVersion: v1
@@ -157,7 +160,7 @@ spec:
     requests:
       storage: 5Gi
 
-
+```
 
 ###### Deployment 
 
