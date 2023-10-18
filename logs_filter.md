@@ -22,4 +22,11 @@
 
 ![image](https://github.com/KirillNichiporov/dev-cluster-leto-install/assets/110092772/cd0699c5-56ea-454b-9e9b-a517073aca26)
 
+Скачать логи можно войдя в дашборд и перейдя в меню карточки, предварительно выбрав период
+
+![image](https://github.com/KirillNichiporov/dev-cluster-leto-install/assets/110092772/ab4ca75d-01aa-417c-940c-31929a6a8114)
+
+![image](https://github.com/KirillNichiporov/dev-cluster-leto-install/assets/110092772/967a3410-8b37-4889-9f87-7ed17846ddcb)
+
+![image](https://github.com/KirillNichiporov/dev-cluster-leto-install/assets/110092772/816501c4-2218-4b92-8aa5-868870e13095)
 
