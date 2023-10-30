@@ -188,6 +188,80 @@ kafka-zookeeper-0           1/1     Running   1 (18h ago)   24h
 
 Отлично, статус running, остается добавить dns на машину k8s-proxy, установка закончена на этом,
 
+### Для новых версий kafka
+
+Скачиваем чарт с helm репозитория и распаковываем архив, имя архива указано как пример, при скачивании будет другой с номером версии
+
+```bash
+
+helm pull bitnami/kafka
+
+tar -xzf kafka.tar
+
+```
+Переходим в распакованный каталог (смотрите,куда распаковали и указывайте этот путь) 
+
+```bash
+
+cd /PATH/kafka
+
+```
+
+Открываем файл values.yaml и внутри редактируем область для всех Listeners в переменной protocol указываем PLAINTEXT,  в переменной enabledMechanisms указываем PLAIN (все указывается для отмены ненужной авторизации при коннекте к сервисам внутри кластера)
+
+```bash
+
+listeners:
+
+  client:
+    containerPort: 9092
+    protocol: PLAINTEXT 
+    name: CLIENT
+    sslClientAuth: ""
+
+  controller:
+    name: CONTROLLER
+    containerPort: 9093
+    protocol: PLAINTEXT
+    sslClientAuth: ""
+
+  interbroker:
+    containerPort: 9094
+    protocol: PLAINTEXT
+    name: INTERNAL
+    sslClientAuth: ""
+
+  external:
+    containerPort: 9095
+    protocol: PLAINTEXT
+    name: EXTERNAL
+    sslClientAuth: ""
+
+  extraListeners: []
+
+  overrideListeners: ""
+  advertisedListeners: ""
+  securityProtocolMap: ""
+
+sasl:
+
+  enabledMechanisms: PLAIN
+ 
+
+```
+ Для переменной storageClass (в начале файла) устанавливаем значение kafka-storage
+
+Запускаем установку (запускаем в каталоге с файлом values.yaml)
+
+```bash
+
+helm install --values value.yaml kafka -n kafka bitnami/kafka
+
+```
+ 
+
+
+
 # Установка Redis
 
 Создаем pvc для мастера redis, ибо при установке необходимо указывать хранилку, cоздаем файл формата yaml, а в нем указываем storageclass ресурс и пространство имен
