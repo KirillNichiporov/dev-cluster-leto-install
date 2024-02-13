@@ -37,6 +37,13 @@ helm repo update
 
 Предварительно надо взять с dev кластера файлы values.yaml и fix-rbac.yaml для внесения переменных раннеру и создания ролей внутри кластера (находятся по пути /home/KUBE_SERVICES/runner)
 
+Внутри файла values.yaml добавляем токен и адрес гитлаба
+
+
+![image](https://github.com/KirillNichiporov/dev-cluster-leto-install/assets/110092772/d7b066e2-c525-4054-8e37-9aa59fbc1f93)
+
+
+
 ```bash
 
 helm install --create-namespace --namespace gitlab-runners gitlab-runner -f values.yaml gitlab/gitlab-runner
