@@ -21,6 +21,8 @@
 
 ![image](https://github.com/KirillNichiporov/dev-cluster-leto-install/assets/110092772/9fd999e9-244d-4d16-815d-a4ec27ab7a88)
 
+# Установка раннера
+
 Пока у нас раннер не доступен, установим его с помощью helm  в кластер, для этого переходим на админскую машину
 
 ![image](https://github.com/KirillNichiporov/dev-cluster-leto-install/assets/110092772/9a959a0d-ff6f-41cc-af83-268485a2b07b)
